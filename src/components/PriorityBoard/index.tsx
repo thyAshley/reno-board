@@ -1,68 +1,97 @@
-import { PRIORITY_COLOUR } from '../../data/taxonomy'
+import { useMemo, useState } from 'react'
+import Chips, { type ChipOption } from '../Chips'
+import { PRIORITY_COLOUR, ROOM_COLOUR, type Room } from '../../data/taxonomy'
+import type { Cents } from '../../lib/money'
 import { formatSGD, formatSGD0 } from '../../lib/money'
 import type { Item } from '../../lib/sheet'
-import type { LevelTotal, Outlook } from '../../lib/totals'
+import { byPriorityLevel, byRoomGroup, outlook, type LevelTotal } from '../../lib/totals'
 import { linkify } from '../../lib/text'
 
-/* What to buy next: the High and Medium rows pulled out of the forty-odd in the
- * register so the live decisions are readable on their own — and, the actual
- * reason this exists, so the money attached to them can be read without mental
- * arithmetic.
+/* What to buy next: everything still outstanding, grouped by room and filterable
+ * to one room at a time.
  *
- * Three figures, in the order the question is asked: what these will cost, what
- * is already committed, and what the budget looks like once they are bought. The
- * first is split by level underneath, because "how much for just the urgent half"
- * is the next question after "how much for all of it".
+ * Room is the grouping because that is how the shopping actually happens — you
+ * fit out a kitchen, not a priority level. Priority still rides along as a badge
+ * on every row and as the breakdown under the headline figures, so urgency is
+ * visible without being the organising principle.
  *
- * Low sits below, past a rule, deliberately outside every figure above it. It is
- * there for the overview — what else is on the list at all — and counting the
- * someday pile into "budget after these" would make the headline figure answer a
- * question nobody asked. Its own total is stated in its own heading instead.
+ * Three figures, in the order the question is asked: what all of this will cost,
+ * what is already committed, and what the budget looks like once it is bought.
+ * They cover every level including Low, and — like the register's — they follow
+ * the filter. A figure that ignored the chips would contradict the rows under it.
  *
- * Takes its figures pre-computed. Components here hold no arithmetic; `outlook`
- * and `byPriorityLevel` in lib/totals.ts do that, where they can be read without
- * JSX around them.
+ * `outlook` still needs every item, not only the visible ones: the budget it
+ * reports has to net off money committed on rows that are filtered out, or
+ * narrowing to one room would appear to give the budget back.
  */
+type RoomFilter = Room | 'all'
+
 export default function PriorityBoard({
+  all,
   rows,
-  outlook,
-  levels,
-  lowRows,
-  low,
+  budget,
 }: {
+  /** Every row on the sheet — for the budget read, not for display. */
+  all: readonly Item[]
+  /** The rows still to buy, already in the order they should appear. */
   rows: readonly Item[]
-  outlook: Outlook
-  levels: readonly LevelTotal[]
-  lowRows: readonly Item[]
-  low: LevelTotal
+  // Explicitly `| undefined`: exactOptionalPropertyTypes separates "absent"
+  // from "present and undefined", and this is always passed, sometimes empty.
+  budget: Cents | undefined
 }) {
-  const overspent = outlook.after !== undefined && outlook.after < 0
+  const [room, setRoom] = useState<RoomFilter>('all')
+
+  /* Grouped once over everything, then narrowed by picking groups rather than
+   * regrouping — so each room's totals are identical whether it is shown beside
+   * the others or on its own. */
+  const allGroups = useMemo(() => byRoomGroup(rows), [rows])
+  const groups = useMemo(
+    () => (room === 'all' ? allGroups : allGroups.filter((group) => group.room === room)),
+    [allGroups, room],
+  )
+  const visible = useMemo(() => groups.flatMap((group) => group.rows), [groups])
+
+  const money = outlook(all, visible, budget)
+  const levels = byPriorityLevel(visible).filter((level) => level.count > 0)
+  const overspent = money.after !== undefined && money.after < 0
+
+  const roomOptions: ChipOption<RoomFilter>[] = [
+    { value: 'all', label: 'All rooms', count: rows.length },
+    ...allGroups.map((group) => ({
+      value: group.room as RoomFilter,
+      label: group.room,
+      count: group.rows.length,
+    })),
+  ]
 
   return (
     <div>
-      {rows.length === 0 ? (
+      {allGroups.length === 0 ? (
         <p className="rounded-md border border-dashed border-cream-300 bg-cream-100 px-4 py-6 text-sm text-walnut-600">
-          Nothing marked <strong className="font-medium">High</strong> or{' '}
-          <strong className="font-medium">Medium</strong> on the sheet right now. Set a row's
-          Priority to either and it appears here — items become{' '}
-          <strong className="font-medium">Completed</strong> once bought, which takes them off this
-          list.
+          Nothing left to buy — every row on the sheet is marked{' '}
+          <strong className="font-medium">Completed</strong>.
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <Chips label="Filter by room" options={roomOptions} value={room} onChange={setRoom} />
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <Figure
               lead
               label="Still to buy"
-              value={formatSGD0(outlook.outstanding)}
-              note={`across ${outlook.count} ${outlook.count === 1 ? 'item' : 'items'} still to buy`}
+              value={formatSGD0(money.outstanding)}
+              note={
+                room === 'all'
+                  ? `across ${money.count} ${money.count === 1 ? 'item' : 'items'} still to buy`
+                  : `across ${money.count} ${money.count === 1 ? 'item' : 'items'} in the ${room}`
+              }
             />
             <Figure
               label="Already committed"
-              value={formatSGD0(outlook.actual)}
+              value={formatSGD0(money.actual)}
               note="on these rows, quoted or paid"
             />
-            {outlook.after === undefined ? (
+            {money.after === undefined ? (
               <Figure
                 label="Budget after these"
                 value="—"
@@ -71,7 +100,7 @@ export default function PriorityBoard({
             ) : (
               <Figure
                 label={overspent ? 'Over budget after these' : 'Budget after these'}
-                value={formatSGD0(Math.abs(outlook.after))}
+                value={formatSGD0(Math.abs(money.after))}
                 note={
                   overspent
                     ? 'buying all of these would exceed the budget'
@@ -83,46 +112,48 @@ export default function PriorityBoard({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-x-8 gap-y-2">
-            {levels
-              .filter((level) => level.count > 0)
-              .map((level) => (
-                <LevelFigure key={level.priority} level={level} />
-              ))}
+            {levels.map((level) => (
+              <LevelFigure key={level.priority} level={level} />
+            ))}
           </div>
 
-          <RowTable
-            rows={rows}
-            showPriority
-            caption={`${rows.length} items to buy next, high priority first and dearest first within each level`}
-          />
+          {groups.map((group) => (
+            <section key={group.room} className="mt-8 border-t border-cream-300 pt-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                <h3 className="flex items-center gap-2 font-display text-xl text-walnut-900">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-2.5 rounded-full"
+                    style={{ backgroundColor: ROOM_COLOUR[group.room] }}
+                  />
+                  {group.room}
+                </h3>
+                <p className="figure text-sm text-walnut-900">
+                  <span className="text-walnut-400">S$</span>
+                  {formatSGD0(group.outstanding)}
+                  <span className="ml-1.5 font-sans text-xs text-walnut-600">
+                    still to buy · {group.rows.length}{' '}
+                    {group.rows.length === 1 ? 'item' : 'items'}
+                    {group.actual > 0 && `, S$${formatSGD0(group.actual)} committed`}
+                  </span>
+                </p>
+              </div>
+
+              <RowTable
+                rows={group.rows}
+                caption={`${group.rows.length} items to buy in the ${group.room}, most urgent first`}
+              />
+            </section>
+          ))}
         </>
       )}
-
-      <section className="mt-10 border-t border-cream-300 pt-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h3 className="font-display text-xl text-walnut-900">Low priority</h3>
-          {low.count > 0 && <LevelFigure level={low} />}
-        </div>
-        <p className="mt-1 max-w-2xl text-sm text-walnut-600">
-          Here for the overview, and left out of the figures above — nothing on this list is a
-          decision yet.
-        </p>
-
-        {low.count === 0 ? (
-          <p className="mt-4 rounded-md border border-dashed border-cream-300 bg-cream-100 px-4 py-6 text-sm text-walnut-600">
-            Nothing marked <strong className="font-medium">Low</strong> on the sheet.
-          </p>
-        ) : (
-          <RowTable rows={lowRows} caption={`${lowRows.length} low-priority items, dearest first`} />
-        )}
-      </section>
     </div>
   )
 }
 
 /** One priority level as a labelled money figure: coloured dot, level, amount
- *  outstanding, count. Used both for the High/Medium split and for Low's own
- *  heading, so the two read identically. */
+ *  outstanding, count. Urgency lives here and in each row's badge, now that room
+ *  rather than priority does the grouping. */
 function LevelFigure({ level }: { level: LevelTotal }) {
   return (
     // Its own <dl>, so it stays valid wherever it is dropped — dt/dd cannot sit
@@ -147,26 +178,17 @@ function LevelFigure({ level }: { level: LevelTotal }) {
   )
 }
 
-/** The row table, shared by the buy-next list and the low-priority list below.
- *  `showPriority` is off for Low, where every row would carry the same badge. */
-function RowTable({
-  rows,
-  caption,
-  showPriority = false,
-}: {
-  rows: readonly Item[]
-  caption: string
-  showPriority?: boolean
-}) {
+/** One room's rows. No Room column: the group's own heading already says it, and
+ *  repeating it down every row is the sort of noise grouping exists to remove. */
+function RowTable({ rows, caption }: { rows: readonly Item[]; caption: string }) {
   return (
-    <div className="mt-6 overflow-x-auto">
-      <table className={['w-full border-collapse text-sm', showPriority ? 'min-w-[38rem]' : 'min-w-[34rem]'].join(' ')}>
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[34rem] border-collapse text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-walnut-700">
+          <tr className="border-b border-cream-300">
             <Th>Item</Th>
-            {showPriority && <Th>Priority</Th>}
-            <Th>Room</Th>
+            <Th>Priority</Th>
             <Th>Status</Th>
             <Th>Retailer</Th>
             <Th align="right">Estimated</Th>
@@ -189,17 +211,14 @@ function RowTable({
                   </span>
                 )}
               </th>
-              {showPriority && (
-                <td className="py-2 pr-3">
-                  <span
-                    className="inline-block rounded-full px-2 py-0.5 font-mono text-[11px] text-cream-50"
-                    style={{ backgroundColor: PRIORITY_COLOUR[row.priority] }}
-                  >
-                    {row.priority}
-                  </span>
-                </td>
-              )}
-              <td className="py-2 pr-3 text-walnut-700">{row.room}</td>
+              <td className="py-2 pr-3">
+                <span
+                  className="inline-block rounded-full px-2 py-0.5 font-mono text-[11px] text-cream-50"
+                  style={{ backgroundColor: PRIORITY_COLOUR[row.priority] }}
+                >
+                  {row.priority}
+                </span>
+              </td>
               <td className="py-2 pr-3 font-mono text-xs text-walnut-700">{row.status}</td>
               <td className="py-2 pr-3 text-walnut-700">{row.vendor ?? <Blank />}</td>
               <td className="figure py-2 pr-3 text-right whitespace-nowrap text-walnut-700">

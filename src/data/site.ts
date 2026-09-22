@@ -30,7 +30,7 @@ export const SITE = {
  * panel itself still shows.
  */
 export const SECTIONS = [
-  { id: "priority", tab: "Buy next", heading: "What to buy next — high and medium priority" },
+  { id: "priority", tab: "Buy next", heading: "What to buy next, room by room" },
   { id: "spend", tab: "Spend", heading: "Spend, cut three ways" },
   { id: "works", tab: "Works", heading: "Renovation works billed" },
   { id: "register", tab: "Register", heading: "Everything on the list" },

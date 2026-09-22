@@ -101,9 +101,9 @@ export function openRows(items: readonly Item[]): Item[] {
 }
 
 /** The priority levels that make up the "what to buy next" view, in the order
- *  they deserve attention. Low is excluded deliberately: it is the someday pile,
- *  and folding it in would make this the register again. */
-export const NEXT_UP: readonly Priority[] = ['High', 'Medium']
+ *  they deserve attention. Everything except `Completed`, which is the sheet's
+ *  way of saying a row is done and therefore no longer something to buy. */
+export const TO_BUY: readonly Priority[] = ['High', 'Medium', 'Low']
 
 /** The rows sitting at one of the given priority levels.
  *
@@ -114,7 +114,7 @@ export const NEXT_UP: readonly Priority[] = ['High', 'Medium']
  *  everything ever considered a priority. */
 export function priorityRows(
   items: readonly Item[],
-  levels: readonly Priority[] = NEXT_UP,
+  levels: readonly Priority[] = TO_BUY,
 ): Item[] {
   return items.filter((item) => levels.includes(item.priority))
 }
@@ -141,9 +141,36 @@ export function levelTotal(items: readonly Item[], priority: Priority): LevelTot
  *  them — an empty level reads as "nothing outstanding" rather than vanishing. */
 export function byPriorityLevel(
   items: readonly Item[],
-  levels: readonly Priority[] = NEXT_UP,
+  levels: readonly Priority[] = TO_BUY,
 ): LevelTotal[] {
   return levels.map((priority) => levelTotal(items, priority))
+}
+
+export interface RoomGroup {
+  room: Room
+  rows: Item[]
+  /** Still to commit in this room. */
+  outstanding: Cents
+  /** Already committed in this room. */
+  actual: Cents
+}
+
+/** Groups rows by room, in declared room order, dropping rooms with nothing in
+ *  them — an empty room is noise on a shopping list, unlike on the spend chart
+ *  where "nothing spent here" is the point.
+ *
+ *  Takes rows already in the order they should appear and preserves it, so the
+ *  sort lives in one place (App) rather than being half here and half there. */
+export function byRoomGroup(rows: readonly Item[]): RoomGroup[] {
+  return ROOM_ORDER.map((room) => {
+    const inRoom = rows.filter((row) => row.room === room)
+    return {
+      room,
+      rows: inRoom,
+      outstanding: total(inRoom, 'projected') - total(inRoom, 'actual'),
+      actual: total(inRoom, 'actual'),
+    }
+  }).filter((group) => group.rows.length > 0)
 }
 
 export interface Outlook {

@@ -13,15 +13,7 @@ import { useHashTab } from './hooks/useHashTab'
 import { useScrolledPast } from './hooks/useScrolledPast'
 import { useSheet } from './hooks/useSheet'
 import { sortItems } from './lib/items'
-import {
-  NEXT_UP,
-  byPriorityLevel,
-  levelTotal,
-  outlook,
-  priorityRows,
-  summarise,
-  worksRows,
-} from './lib/totals'
+import { TO_BUY, priorityRows, summarise, worksRows } from './lib/totals'
 
 const FIRST_TAB: SectionId = 'priority'
 
@@ -34,36 +26,25 @@ export default function App() {
   const summary = useMemo(() => summarise(items, stated.budget), [items, stated.budget])
   const works = useMemo(() => worksRows(items), [items])
 
-  /* High before Medium, and within each, dearest first: the item that moves the
-   * budget most is the one worth deciding first. Grouping by level then sorting
-   * within it, rather than one sort across both, keeps the two blocks intact —
-   * a dear Medium should not outrank a cheap High on a list about urgency. */
-  const priority = useMemo(
+  /* Everything still to buy, ordered once here and grouped by room downstream.
+   *
+   * The order within a room is priority first, then dearest: High before Medium
+   * before Low, and inside a level the item that moves the budget most. Sorting
+   * per level and concatenating, rather than one sort across all of them, is what
+   * keeps a dear Low from outranking a cheap High. */
+  const toBuy = useMemo(
     () =>
-      NEXT_UP.flatMap((level) =>
+      TO_BUY.flatMap((level) =>
         sortItems(priorityRows(items, [level]), { key: 'estimate', dir: -1 }),
       ),
     [items],
   )
-  const priorityOutlook = useMemo(
-    () => outlook(items, priority, stated.budget),
-    [items, priority, stated.budget],
-  )
-  const priorityLevels = useMemo(() => byPriorityLevel(items), [items])
-
-  /* Low is shown for the overview and kept out of every figure above it — see the
-   * comment in PriorityBoard. */
-  const lowRows = useMemo(
-    () => sortItems(priorityRows(items, ['Low']), { key: 'estimate', dir: -1 }),
-    [items],
-  )
-  const low = useMemo(() => levelTotal(items, 'Low'), [items])
 
   /* A count on the strip wherever one is meaningful. Spend gets none: it is a
    * different view of the same rows, not a subset of them, so "41" beside it
    * would only repeat the register. */
   const tabCounts: Partial<Record<SectionId, number>> = {
-    priority: priority.length,
+    priority: toBuy.length,
     works: works.length,
     register: items.length,
     specs: specs.length,
@@ -146,13 +127,7 @@ export default function App() {
             </div>
 
             <Panel id="priority" active={active}>
-              <PriorityBoard
-                rows={priority}
-                outlook={priorityOutlook}
-                levels={priorityLevels}
-                lowRows={lowRows}
-                low={low}
-              />
+              <PriorityBoard all={items} rows={toBuy} budget={stated.budget} />
             </Panel>
 
             <Panel id="spend" active={active}>

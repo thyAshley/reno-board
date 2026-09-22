@@ -84,11 +84,11 @@ src/
     text.ts         cell cleaning, markdown stripping, linkify
     sheet.ts        CSV -> Item[] + problems. The untrusted boundary.
     items.ts        item-level predicates and sorting
-    totals.ts       summary, per-room, works/open partition
+    totals.ts       summary, per-room, per-level, works/open partition
     cuts.ts         slice items by one dimension for the bar charts
   components/       one directory per component, index.tsx
     Tabs/           the tab strip; ARIA tabs pattern, arrow keys
-    PriorityBoard/  High rows with their own budget read
+    PriorityBoard/  what's left to buy, by room, with its own budget read
   styles/
     index.css       imports tailwind, then theme, then base
     theme.css       @theme token block — the palette lives here
@@ -104,7 +104,7 @@ hash, so the three can't disagree:
 
 | Tab | What it is |
 | --- | --- |
-| **Buy next** | `High` and `Medium` rows with their own budget figures, and `Low` below for the overview |
+| **Buy next** | Everything outstanding, grouped by room and filterable to one |
 | **Spend** | The same rows cut by room, priority and status |
 | **Works** | Lines a contractor has billed |
 | **Register** | Everything, filterable and sortable |
@@ -120,26 +120,36 @@ a time** — the accepted cost of tabs here.
 
 ### Buy next
 
-The tab is in two parts, and the split is the point:
+One list, **grouped by room** — because that's how the shopping happens: you fit
+out a kitchen, not a priority level. Each room gets a heading with its own
+outstanding total, count, and anything already committed there.
 
-- **High and Medium** carry the figures — still to buy, already committed, and
-  budget after these — broken down per level beneath. High sorts above Medium and
-  each block runs dearest first, so a dear Medium never outranks a cheap High on a
-  list that is about urgency. `NEXT_UP` in `src/lib/totals.ts` is the one place
-  those levels are named.
-- **Low** sits below a rule, **outside every figure above it**, with its own
-  total in its own heading. It's there to see what else is on the list; counting
-  the someday pile into "budget after these" would make the headline figure answer
-  a question nobody asked.
+A row of chips above filters to **one room at a time**, so the tab isn't one long
+scroll. Rooms are grouped once over the whole list and then *selected*, never
+regrouped, so a room's totals read the same alone as they do alongside the others.
+Only rooms that have something left to buy get a chip.
 
-The tab's count badge follows High + Medium, not Low, for the same reason.
+Priority still drives the *order*, not the grouping. Rows run `High`, then
+`Medium`, then `Low`, and dearest first inside each level — sorted per level and
+concatenated rather than in one pass, so a dear `Low` never outranks a cheap
+`High` on a list about urgency. `TO_BUY` in `src/lib/totals.ts` is the one place
+those levels are named; every row carries its level as a coloured badge, and the
+breakdown line under the figures gives the per-level split.
 
-This shows *outstanding* items, not every item ever prioritised. Because the sheet
-overloads Priority to carry `Completed`, buying something moves it off these lists
-— what a "what next" view wants, but worth knowing before reading a total as
-lifetime spend at that level. "Budget after these" nets the outstanding amount off
-the budget *and* off commitments from rows outside the list, which is why
-`outlook()` takes both the subset and the full set.
+The three figures — still to buy, already committed, budget after these — cover
+**all three levels**, as does the tab's count badge, and they **follow the room
+filter**. Both rules come from the same place: a figure that ignored `Low`, or
+ignored the chips, would contradict the rows beneath it. The count badge on the
+tab is the exception, since a strip can't show a filtered number.
+
+"Budget after these" is still read against *every* row, filtered or not — money
+committed in the bathroom doesn't come back when you narrow to the kitchen, which
+is why `outlook()` takes both the subset and the full set.
+
+The tab shows *outstanding* items, not every item ever prioritised. Because the
+sheet overloads Priority to carry `Completed`, buying something moves it off this
+list — what a "what next" view wants, but worth knowing before reading a room's
+total as everything that room will ever cost.
 
 ## Conventions
 
