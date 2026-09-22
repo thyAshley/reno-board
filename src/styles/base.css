@@ -1,0 +1,48 @@
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-cream-50);
+    color: var(--color-walnut-900);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--color-walnut-800);
+    font-family: var(--font-display);
+  }
+
+  /* Money and other figures are tabular, so they align down a column. */
+  .figure {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ember-500);
+    outline-offset: 2px;
+  }
+}
+
+/* Covers the bar-width transitions in SpendChart and the sticky header's
+ * collapse, which both animate via CSS transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+}
