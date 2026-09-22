@@ -1,5 +1,7 @@
 # Renovation Dashboard
 
+**Live: <https://thyashley.github.io/reno-board/>**
+
 A single static page for the renovation of one 4-room HDB flat: what it cost,
 what has been ordered, and what is still to buy. Pure frontend — no backend,
 database, or authentication.
@@ -67,14 +69,15 @@ contractor's name in the **Brand** column and leave Retailer / Vendor as `NA`.
 index.html
 src/
   main.tsx          entry; @fontsource imports, mounts App
-  App.tsx           masthead, sticky header, section shell
+  App.tsx           masthead, sticky header, tab strip, panels
   data/
     taxonomy.ts     Room / Priority / Status unions, aliases, colour maps
     source.ts       sheet id and CSV endpoints
-    site.ts         copy constants, section order
+    site.ts         copy constants, tab ids / labels / headings
   hooks/
     useSheet.ts     the fetch: both tabs, abortable, reloadable
     useScrolledPast.ts  header-collapse trigger
+    useHashTab.ts   active tab <-> URL hash
   lib/
     csv.ts          RFC 4180 parser
     money.ts        Cents type, parsing and formatting
@@ -84,12 +87,59 @@ src/
     totals.ts       summary, per-room, works/open partition
     cuts.ts         slice items by one dimension for the bar charts
   components/       one directory per component, index.tsx
+    Tabs/           the tab strip; ARIA tabs pattern, arrow keys
+    PriorityBoard/  High rows with their own budget read
   styles/
     index.css       imports tailwind, then theme, then base
     theme.css       @theme token block — the palette lives here
     base.css        element defaults, reduced-motion, print
 public/             static assets
 ```
+
+## Tabs
+
+The dashboard is five tabs, declared in order in `SECTIONS` (`src/data/site.ts`).
+That one list drives the strip's short labels, each panel's `<h2>`, and the URL
+hash, so the three can't disagree:
+
+| Tab | What it is |
+| --- | --- |
+| **Buy next** | `High` and `Medium` rows with their own budget figures, and `Low` below for the overview |
+| **Spend** | The same rows cut by room, priority and status |
+| **Works** | Lines a contractor has billed |
+| **Register** | Everything, filterable and sortable |
+| **Specs** | What each appliance needs at the wall |
+
+The budget tiles sit *above* the strip and show on every tab — they answer "where
+am I", which shouldn't be behind a click.
+
+The active tab lives in the URL hash, so `…/#register` deep-links to a tab, the
+back button walks through the tabs visited, and a refresh stays put. Only the
+active panel is mounted, which means **find-in-page and printing cover one tab at
+a time** — the accepted cost of tabs here.
+
+### Buy next
+
+The tab is in two parts, and the split is the point:
+
+- **High and Medium** carry the figures — still to buy, already committed, and
+  budget after these — broken down per level beneath. High sorts above Medium and
+  each block runs dearest first, so a dear Medium never outranks a cheap High on a
+  list that is about urgency. `NEXT_UP` in `src/lib/totals.ts` is the one place
+  those levels are named.
+- **Low** sits below a rule, **outside every figure above it**, with its own
+  total in its own heading. It's there to see what else is on the list; counting
+  the someday pile into "budget after these" would make the headline figure answer
+  a question nobody asked.
+
+The tab's count badge follows High + Medium, not Low, for the same reason.
+
+This shows *outstanding* items, not every item ever prioritised. Because the sheet
+overloads Priority to carry `Completed`, buying something moves it off these lists
+— what a "what next" view wants, but worth knowing before reading a total as
+lifetime spend at that level. "Budget after these" nets the outstanding amount off
+the budget *and* off commitments from rows outside the list, which is why
+`outlook()` takes both the subset and the full set.
 
 ## Conventions
 
@@ -130,9 +180,20 @@ on colour.
 
 ## Deploying
 
+Pushing to `main` deploys. `.github/workflows/deploy.yml` typechecks, builds, and
+publishes `dist/` to GitHub Pages at
+<https://thyashley.github.io/reno-board/>; the run summary links the live URL
+from the action's own output rather than a hardcoded string. To build locally:
+
 ```sh
 npm run build      # -> dist/
 ```
 
-`dist/` is entirely static. Nothing in it holds a secret: the sheet id is public
-by necessity, since the browser is the thing fetching it.
+Because the site is a *project* page it is served from the `/reno-board/`
+subpath, which is why `vite.config.ts` sets `base: './'` — the assets resolve
+relatively and the repo can be renamed without touching the build.
+
+`dist/` is entirely static and holds no secret, but it is not private either: the
+sheet id ships in the bundle, so anyone reading the source can fetch **every tab
+and column of the spreadsheet**, not only the figures rendered here. Keep
+anything that should not be public out of that sheet.

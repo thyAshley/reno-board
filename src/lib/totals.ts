@@ -99,3 +99,82 @@ export function worksRows(items: readonly Item[]): Item[] {
 export function openRows(items: readonly Item[]): Item[] {
   return items.filter((item) => item.actual === undefined)
 }
+
+/** The priority levels that make up the "what to buy next" view, in the order
+ *  they deserve attention. Low is excluded deliberately: it is the someday pile,
+ *  and folding it in would make this the register again. */
+export const NEXT_UP: readonly Priority[] = ['High', 'Medium']
+
+/** The rows sitting at one of the given priority levels.
+ *
+ *  Note what this necessarily excludes. The sheet overloads Priority to carry
+ *  `Completed`, so an item that has been bought no longer says `High` or
+ *  `Medium` — it says `Completed` and drops out. That is the wanted behaviour
+ *  for a "what next" view, but it does mean this is the *outstanding* set, not
+ *  everything ever considered a priority. */
+export function priorityRows(
+  items: readonly Item[],
+  levels: readonly Priority[] = NEXT_UP,
+): Item[] {
+  return items.filter((item) => levels.includes(item.priority))
+}
+
+export interface LevelTotal {
+  priority: Priority
+  count: number
+  /** Still to commit at this level. */
+  outstanding: Cents
+}
+
+/** One level's count and outstanding amount. Returns zeroes rather than
+ *  undefined for a level with no rows, so a caller never has to handle absence. */
+export function levelTotal(items: readonly Item[], priority: Priority): LevelTotal {
+  const rows = priorityRows(items, [priority])
+  return {
+    priority,
+    count: rows.length,
+    outstanding: total(rows, 'projected') - total(rows, 'actual'),
+  }
+}
+
+/** One row per level, in declared order, including levels with nothing against
+ *  them — an empty level reads as "nothing outstanding" rather than vanishing. */
+export function byPriorityLevel(
+  items: readonly Item[],
+  levels: readonly Priority[] = NEXT_UP,
+): LevelTotal[] {
+  return levels.map((priority) => levelTotal(items, priority))
+}
+
+export interface Outlook {
+  count: number
+  /** Committed against these rows already. */
+  actual: Cents
+  /** Still to commit on these rows: their realistic outturn less what is
+   *  already committed. The number to carry to the shops. */
+  outstanding: Cents
+  /** Budget, less everything committed across the whole list, less the
+   *  outstanding amount above. What would remain having bought only these —
+   *  which is the question a priority list is asked. Absent without a budget. */
+  after?: Cents
+}
+
+/** Money view of one subset of rows, read against the whole list's commitments.
+ *  `all` is deliberately a separate argument: the headroom this reports has to
+ *  net off spend from rows that are *not* in the subset, so it cannot be
+ *  derived from the subset alone. */
+export function outlook(
+  all: readonly Item[],
+  subset: readonly Item[],
+  budget?: Cents,
+): Outlook {
+  const actual = total(subset, 'actual')
+  const outstanding = total(subset, 'projected') - actual
+
+  return {
+    count: subset.length,
+    actual,
+    outstanding,
+    ...(budget !== undefined && { after: budget - total(all, 'actual') - outstanding }),
+  }
+}

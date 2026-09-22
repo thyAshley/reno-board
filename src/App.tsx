@@ -2,25 +2,77 @@ import { useMemo, type ReactNode } from 'react'
 import BudgetTiles from './components/BudgetTiles'
 import ItemRegister from './components/ItemRegister'
 import { Loading, LoadError, Problems } from './components/Notice'
+import PriorityBoard from './components/PriorityBoard'
 import SpendChart from './components/SpendChart'
+import Tabs, { type TabItem } from './components/Tabs'
 import UtilitySpecs from './components/UtilitySpecs'
 import WorksLedger from './components/WorksLedger'
-import { SECTIONS, SITE } from './data/site'
+import { SECTIONS, SITE, TAB_IDS, type SectionId } from './data/site'
 import { sheetUrl } from './data/source'
+import { useHashTab } from './hooks/useHashTab'
 import { useScrolledPast } from './hooks/useScrolledPast'
 import { useSheet } from './hooks/useSheet'
-import { summarise, worksRows } from './lib/totals'
+import { sortItems } from './lib/items'
+import {
+  NEXT_UP,
+  byPriorityLevel,
+  levelTotal,
+  outlook,
+  priorityRows,
+  summarise,
+  worksRows,
+} from './lib/totals'
+
+const FIRST_TAB: SectionId = 'priority'
 
 export default function App() {
   const sheet = useSheet()
   const { status, items, specs, stated, problems, error, fetchedAt, reload } = sheet
   const [marker, stuck] = useScrolledPast<HTMLDivElement>()
+  const [active, selectTab] = useHashTab(TAB_IDS, FIRST_TAB)
 
   const summary = useMemo(() => summarise(items, stated.budget), [items, stated.budget])
   const works = useMemo(() => worksRows(items), [items])
 
-  const heading = (id: string): string =>
-    SECTIONS.find((section) => section.id === id)?.heading ?? id
+  /* High before Medium, and within each, dearest first: the item that moves the
+   * budget most is the one worth deciding first. Grouping by level then sorting
+   * within it, rather than one sort across both, keeps the two blocks intact —
+   * a dear Medium should not outrank a cheap High on a list about urgency. */
+  const priority = useMemo(
+    () =>
+      NEXT_UP.flatMap((level) =>
+        sortItems(priorityRows(items, [level]), { key: 'estimate', dir: -1 }),
+      ),
+    [items],
+  )
+  const priorityOutlook = useMemo(
+    () => outlook(items, priority, stated.budget),
+    [items, priority, stated.budget],
+  )
+  const priorityLevels = useMemo(() => byPriorityLevel(items), [items])
+
+  /* Low is shown for the overview and kept out of every figure above it — see the
+   * comment in PriorityBoard. */
+  const lowRows = useMemo(
+    () => sortItems(priorityRows(items, ['Low']), { key: 'estimate', dir: -1 }),
+    [items],
+  )
+  const low = useMemo(() => levelTotal(items, 'Low'), [items])
+
+  /* A count on the strip wherever one is meaningful. Spend gets none: it is a
+   * different view of the same rows, not a subset of them, so "41" beside it
+   * would only repeat the register. */
+  const tabCounts: Partial<Record<SectionId, number>> = {
+    priority: priority.length,
+    works: works.length,
+    register: items.length,
+    specs: specs.length,
+  }
+
+  const tabs: TabItem<SectionId>[] = SECTIONS.map((entry) => {
+    const count = tabCounts[entry.id]
+    return { id: entry.id, label: entry.tab, ...(count !== undefined && { count }) }
+  })
 
   return (
     <div className="min-h-dvh bg-cream-50 text-walnut-900">
@@ -85,27 +137,43 @@ export default function App() {
               </div>
             )}
 
+            {/* Above the tabs, deliberately: the headline figures answer "where am
+              * I" and belong on every view rather than behind a click. */}
             <BudgetTiles summary={summary} />
 
-            <Section id="spend" heading={heading('spend')}>
-              <SpendChart items={items} />
-            </Section>
+            <div className="mt-10">
+              <Tabs items={tabs} active={active} onSelect={selectTab} label="Dashboard views" />
+            </div>
 
-            <Section
+            <Panel id="priority" active={active}>
+              <PriorityBoard
+                rows={priority}
+                outlook={priorityOutlook}
+                levels={priorityLevels}
+                lowRows={lowRows}
+                low={low}
+              />
+            </Panel>
+
+            <Panel id="spend" active={active}>
+              <SpendChart items={items} />
+            </Panel>
+
+            <Panel
               id="works"
-              heading={heading('works')}
+              active={active}
               note="Lines a contractor has billed, kept apart from the appliances still being shopped for."
             >
               <WorksLedger rows={works} />
-            </Section>
+            </Panel>
 
-            <Section id="register" heading={heading('register')}>
+            <Panel id="register" active={active}>
               <ItemRegister items={items} />
-            </Section>
+            </Panel>
 
-            <Section id="specs" heading={heading('specs')}>
+            <Panel id="specs" active={active}>
               <UtilitySpecs specs={specs} />
-            </Section>
+            </Panel>
           </>
         )}
       </main>
@@ -129,24 +197,35 @@ export default function App() {
   )
 }
 
-function Section({
+/** One tab's contents. Renders nothing at all unless it is the active tab —
+ *  cheaper than hiding it, and it keeps each panel's own state (the register's
+ *  filters, say) from surviving invisibly. */
+function Panel({
   id,
-  heading,
+  active,
   note,
   children,
 }: {
-  id: string
-  heading: string
+  id: SectionId
+  active: SectionId
   note?: string
   children: ReactNode
 }) {
+  if (id !== active) return null
+
+  const heading = SECTIONS.find((entry) => entry.id === id)?.heading ?? id
+
   return (
-    // scroll-mt clears the collapsed sticky header, so jumping to #register
-    // does not park the heading underneath it.
-    <section id={id} aria-labelledby={`${id}-heading`} className="mt-12 scroll-mt-20">
-      <h2 id={`${id}-heading`} className="font-display text-2xl">
-        {heading}
-      </h2>
+    <section
+      role="tabpanel"
+      id={`panel-${id}`}
+      aria-labelledby={`tab-${id}`}
+      /* Focusable so that tabbing off the strip lands in the panel, which is how
+       * the ARIA pattern expects a panel to be reached. */
+      tabIndex={0}
+      className="mt-8"
+    >
+      <h2 className="font-display text-2xl">{heading}</h2>
       {note !== undefined && <p className="mt-1 max-w-2xl text-sm text-walnut-600">{note}</p>}
       <div className="mt-4">{children}</div>
     </section>
