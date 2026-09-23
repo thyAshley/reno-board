@@ -1,7 +1,5 @@
 # Renovation Dashboard
 
-**Live: <https://thyashley.github.io/reno-board/>**
-
 A single static page for the renovation of one 4-room HDB flat: what it cost,
 what has been ordered, and what is still to buy. Pure frontend — no backend,
 database, or authentication.
@@ -16,13 +14,13 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-| Script | What it does |
-| --- | --- |
-| `npm run dev` | Vite dev server with HMR |
-| `npm run build` | Typechecks, then emits static `dist/` |
-| `npm run preview` | Serves the built `dist/` locally |
-| `npm run typecheck` | `tsc --noEmit` over app and config |
-| `npm run lint` | ESLint |
+| Script              | What it does                          |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Vite dev server with HMR              |
+| `npm run build`     | Typechecks, then emits static `dist/` |
+| `npm run preview`   | Serves the built `dist/` locally      |
+| `npm run typecheck` | `tsc --noEmit` over app and config    |
+| `npm run lint`      | ESLint                                |
 
 `vite.config.ts` sets `base: './'`, so `dist/` drops onto GitHub Pages, Netlify,
 Cloudflare Pages, or any subpath without reconfiguration.
@@ -64,7 +62,7 @@ state for a line with a real price that is neither being chased nor bought.
 `KIV` is in the union because leaving it out did not make those rows neutral, it
 made them **invisible**: an unrecognised status is excluded from every figure at
 the parse boundary, which held the $5,400 System 4 air con out of the outturn and
-put the row in the problems banner instead. `isSettled()` deliberately does *not*
+put the row in the problems banner instead. `isSettled()` deliberately does _not_
 count it — parked is not bought — so a `KIV` row sits in the estimated band and
 stays on the "buy next" list.
 
@@ -91,7 +89,7 @@ price, not the sheet's own `Total Estimated Price ($)`. Three rows are marked
 quantity 2 — the basin/vanity pair, the bidets, the standing desks — so each
 counts once: $700, $30 and $650 instead of $1,400, $60 and $1,300.
 
-That $1,380 is the *whole* of the gap between the sheet's stated `Total Est. Cost`
+That $1,380 is the _whole_ of the gap between the sheet's stated `Total Est. Cost`
 of $80,587 and the $79,207 computed here. Nothing else is unaccounted for.
 
 ## Layout
@@ -136,15 +134,15 @@ The dashboard is five tabs, declared in order in `SECTIONS` (`src/data/site.ts`)
 That one list drives the strip's short labels, each panel's `<h2>`, and the URL
 hash, so the three can't disagree:
 
-| Tab | What it is |
-| --- | --- |
+| Tab          | What it is                                                    |
+| ------------ | ------------------------------------------------------------- |
 | **Buy next** | Everything outstanding, grouped by room and filterable to one |
-| **Spend** | The same rows cut by room, priority and status |
-| **Works** | The quotation in instalments: contracted against paid |
-| **Register** | Everything, filterable and sortable |
-| **Specs** | What each appliance needs at the wall |
+| **Spend**    | The same rows cut by room, priority and status                |
+| **Works**    | The quotation in instalments: contracted against paid         |
+| **Register** | Everything, filterable and sortable                           |
+| **Specs**    | What each appliance needs at the wall                         |
 
-The budget bar and its tiles sit *above* the strip and show on every tab — they
+The budget bar and its tiles sit _above_ the strip and show on every tab — they
 answer "where am I", which shouldn't be behind a click.
 
 ### The budget bar
@@ -153,11 +151,11 @@ One bar, then three figures, both built from the same split of the projected
 outturn by **how firm each sum is**. The bar comes first because it is the whole
 answer in one line; the tiles under it are that same split written out exactly.
 
-| Band | What it is | Colour |
-| --- | --- | --- |
-| **Paid** | invoiced and settled — money that has left the bank | `walnut-900` |
-| **Contracted** | agreed with the contractor, not yet invoiced | `brass-500` |
-| **Furniture estimates** | still being shopped for | `oak-500` |
+| Band                    | What it is                                          | Colour       |
+| ----------------------- | --------------------------------------------------- | ------------ |
+| **Paid**                | invoiced and settled — money that has left the bank | `walnut-900` |
+| **Contracted**          | agreed with the contractor, not yet invoiced        | `brass-500`  |
+| **Furniture estimates** | still being shopped for                             | `oak-500`    |
 
 The keys in code are `paid`, `contracted` and `estimated`; `BAND_LABEL` in
 `src/data/taxonomy.ts` holds what each is called on screen, so relabelling a band
@@ -204,11 +202,11 @@ out a kitchen, not a priority level. Each room gets a heading with its own
 outstanding total, count, and anything already committed there.
 
 A row of chips above filters to **one room at a time**, so the tab isn't one long
-scroll. Rooms are grouped once over the whole list and then *selected*, never
+scroll. Rooms are grouped once over the whole list and then _selected_, never
 regrouped, so a room's totals read the same alone as they do alongside the others.
 Only rooms that have something left to buy get a chip.
 
-Priority still drives the *order*, not the grouping. Rows run `High`, then
+Priority still drives the _order_, not the grouping. Rows run `High`, then
 `Medium`, then `Low`, and dearest first inside each level — sorted per level and
 concatenated rather than in one pass, so a dear `Low` never outranks a cheap
 `High` on a list about urgency. `TO_BUY` in `src/lib/totals.ts` is the one place
@@ -221,11 +219,11 @@ filter**. Both rules come from the same place: a figure that ignored `Low`, or
 ignored the chips, would contradict the rows beneath it. The count badge on the
 tab is the exception, since a strip can't show a filtered number.
 
-"Budget after these" is still read against *every* row, filtered or not — money
+"Budget after these" is still read against _every_ row, filtered or not — money
 committed in the bathroom doesn't come back when you narrow to the kitchen, which
 is why `outlook()` takes both the subset and the full set.
 
-The tab shows *outstanding* items, not every item ever prioritised. Because the
+The tab shows _outstanding_ items, not every item ever prioritised. Because the
 sheet overloads Priority to carry `Completed`, buying something moves it off this
 list — what a "what next" view wants, but worth knowing before reading a room's
 total as everything that room will ever cost.
@@ -252,17 +250,17 @@ total as everything that room will ever cost.
 Warm wood and cream. Three families by role, all defined in
 `src/styles/theme.css`:
 
-| Family | Role |
-| --- | --- |
-| `cream-50…300` | paper — background, cards, stripes, borders |
-| `walnut-400…950` | wood — text, headings, the header panel, muted figures |
-| `oak` `brass` `ember` `sage` `blush` `denim` `plum` | accents — chart series and emphasis |
+| Family                                              | Role                                                   |
+| --------------------------------------------------- | ------------------------------------------------------ |
+| `cream-50…300`                                      | paper — background, cards, stripes, borders            |
+| `walnut-400…950`                                    | wood — text, headings, the header panel, muted figures |
+| `oak` `brass` `ember` `sage` `blush` `denim` `plum` | accents — chart series and emphasis                    |
 
 `ember-500` is the emphasis accent and the focus ring; `ember-600` is reserved for
 the budget line on an overrunning bar, which is why no band on that bar is rust.
 `sage-600` carries positive accounting figures; `walnut-400` carries the em dash on
 an absent one.
-`oak-400` and `brass-400` exist only for small text sitting *on* the wood, where
+`oak-400` and `brass-400` exist only for small text sitting _on_ the wood, where
 the `-500`s are too dark; the `-500`s stay put because they are chart series read
 against cream, where lighter is worse.
 
@@ -292,7 +290,7 @@ from the action's own output rather than a hardcoded string. To build locally:
 npm run build      # -> dist/
 ```
 
-Because the site is a *project* page it is served from the `/reno-board/`
+Because the site is a _project_ page it is served from the `/reno-board/`
 subpath, which is why `vite.config.ts` sets `base: './'` — the assets resolve
 relatively and the repo can be renamed without touching the build.
 
