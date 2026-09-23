@@ -27,7 +27,18 @@ export type Room =
  * the done/not-done question instead of reading either column directly. */
 export type Priority = 'High' | 'Medium' | 'Low' | 'Completed'
 
-export type Status = 'Researching' | 'Ordered'
+/* Where a row has got to in the buying. `KIV` — keep in view — is the sheet's
+ * parked state: a real line with a real price that is neither being actively
+ * researched nor ordered.
+ *
+ * It is in the union because leaving it out did not make those rows neutral, it
+ * made them invisible: an unrecognised status is excluded from every figure at
+ * the parse boundary, which quietly held $4,000 of air conditioning out of the
+ * projected outturn. Parked money still has to be budgeted for.
+ *
+ * `isSettled` deliberately does not count it — parked is not bought — so KIV
+ * rows sit in the estimated band and on the "buy next" list. */
+export type Status = 'Researching' | 'Ordered' | 'KIV'
 
 /* Display order for rooms: the lived-in spaces first, then the bathroom, with
  * whole-flat spend last. */
@@ -43,7 +54,8 @@ export const ROOM_ORDER: readonly Room[] = [
 
 export const PRIORITY_ORDER: readonly Priority[] = ['High', 'Medium', 'Low', 'Completed']
 
-export const STATUS_ORDER: readonly Status[] = ['Ordered', 'Researching']
+/** Most advanced first: ordered, still being looked at, parked. */
+export const STATUS_ORDER: readonly Status[] = ['Ordered', 'Researching', 'KIV']
 
 export const ROOMS = new Set<string>(ROOM_ORDER)
 export const PRIORITIES = new Set<string>(PRIORITY_ORDER)
@@ -98,6 +110,29 @@ export function isStatus(value: string): value is Status {
   return STATUSES.has(value)
 }
 
+/* How committed a sum of money is — the bands on the budget bar.
+ *
+ * Unlike the three above, this is not a sheet column: it is derived from how far
+ * each row has got. Paid has left the bank; Contracted is agreed with a
+ * contractor but not yet invoiced; Estimated is still a shopping guess. Ordered
+ * most-committed first, which is also darkest first on the bar.
+ *
+ * `bandTotals` in lib/totals.ts computes them, and the three partition the
+ * projected outturn exactly — no row's money lands in two bands or none. */
+export type Band = 'paid' | 'contracted' | 'estimated'
+
+export const BAND_ORDER: readonly Band[] = ['paid', 'contracted', 'estimated']
+
+/* The keys stay abstract; the labels say what the money actually is in this
+ * flat. Everything not contracted to the renovation firm is furniture and
+ * appliances still being shopped for, so "Furniture estimates" is both more
+ * concrete than "Estimated" and the honest description of the band. */
+export const BAND_LABEL: Record<Band, string> = {
+  paid: 'Paid',
+  contracted: 'Contracted',
+  estimated: 'Furniture estimates',
+}
+
 /* Colours are token references, not hex, so charts and any SVG read from the
  * same @theme definitions in src/styles/theme.css. The room map walks the
  * series ramp in order so no two adjacent bars collide. */
@@ -122,4 +157,16 @@ export const PRIORITY_COLOUR: Record<Priority, string> = {
 export const STATUS_COLOUR: Record<Status, string> = {
   Ordered: 'var(--color-sage-600)',
   Researching: 'var(--color-oak-500)',
+  // Parked: the muted wood, so it reads as set aside rather than as a fourth
+  // kind of progress.
+  KIV: 'var(--color-walnut-600)',
+}
+
+/* Deep wood to pale tan as money gets less certain, so the bar reads as one
+ * ramp rather than three unrelated colours. Rust is kept out of it: it marks
+ * the budget line when the bar overruns, and would compete here. */
+export const BAND_COLOUR: Record<Band, string> = {
+  paid: 'var(--color-walnut-900)',
+  contracted: 'var(--color-brass-500)',
+  estimated: 'var(--color-oak-500)',
 }

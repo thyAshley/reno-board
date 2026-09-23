@@ -56,6 +56,18 @@ those: rows filed under **Laundry** count as **Kitchen**, since the washer and
 drying rack sit in the service yard off it rather than in a room of their own.
 Matching ignores case and extra whitespace.
 
+### Statuses
+
+Three: `Ordered`, `Researching`, and `KIV` — keep in view, the sheet's parked
+state for a line with a real price that is neither being chased nor bought.
+
+`KIV` is in the union because leaving it out did not make those rows neutral, it
+made them **invisible**: an unrecognised status is excluded from every figure at
+the parse boundary, which held the $5,400 System 4 air con out of the outturn and
+put the row in the problems banner instead. `isSettled()` deliberately does *not*
+count it — parked is not bought — so a `KIV` row sits in the estimated band and
+stays on the "buy next" list.
+
 ### Known wrinkles in the sheet
 
 `Completed` lives in the **Priority** column, where it is really a status. No
@@ -68,23 +80,19 @@ quotation is six instalment rows (5% deposit, 45%, 30%, 15%, 5%, plus electrical
 and the five not yet invoiced hold `$0.00` in Actual / Quoted rather than an empty
 cell. Read literally, `actual ?? estimate` priced each of them at nothing and
 dropped **$45,349** of contracted work out of the projected outturn — which then
-showed $28,870 against a real $74,219, and handed the difference back as headroom.
+showed $33,858 against a real $79,207, and handed the difference back as headroom.
 `parseAmount` in `src/lib/sheet.ts` folds zero into the blanks at the boundary, so
 every figure downstream is fixed in one place. A genuinely free line is
 indistinguishable from an unfilled cell here, and reading it as unpriced is the
 safer of the two: it shows an em dash rather than quietly shrinking a total.
 
-**Status values outside the union cost real money.** The sheet uses `KIV` on three
-rows, which is not `Researching` or `Ordered`, so those rows are excluded from
-every figure and reported in the banner — currently hiding **$4,000** (the System 4
-air con). Adding `KIV` to `Status` in `src/data/taxonomy.ts` would bring it back in.
-
 **Quantity is ignored.** The parser reads `Target / Estimated Price ($)`, the unit
-price, not the sheet's own `Total Estimated Price ($)`. The two standing desks
-therefore count once, $650 rather than $1,300.
+price, not the sheet's own `Total Estimated Price ($)`. Three rows are marked
+quantity 2 — the basin/vanity pair, the bidets, the standing desks — so each
+counts once: $700, $30 and $650 instead of $1,400, $60 and $1,300.
 
-Those last two are the whole of the remaining gap between the sheet's stated
-`Total Est. Cost` of $78,869 and the $74,219 computed here: $4,000 + $650.
+That $1,380 is the *whole* of the gap between the sheet's stated `Total Est. Cost`
+of $80,587 and the $79,207 computed here. Nothing else is unaccounted for.
 
 ## Layout
 
@@ -94,7 +102,7 @@ src/
   main.tsx          entry; @fontsource imports, mounts App
   App.tsx           masthead, sticky header, tab strip, panels
   data/
-    taxonomy.ts     Room / Priority / Status unions, aliases, colour maps
+    taxonomy.ts     Room / Priority / Status / Band, aliases, colour maps
     source.ts       sheet id and CSV endpoints
     site.ts         copy constants, tab ids / labels / headings
   hooks/
@@ -107,10 +115,13 @@ src/
     text.ts         cell cleaning, markdown stripping, linkify
     sheet.ts        CSV -> Item[] + problems. The untrusted boundary.
     items.ts        item-level predicates and sorting
-    totals.ts       summary, per-room, per-level, works/open partition
+    totals.ts       summary, bands and bar geometry, per-room, per-level,
+                    works/open partition
     cuts.ts         slice items by one dimension for the bar charts
   components/       one directory per component, index.tsx
     Tabs/           the tab strip; ARIA tabs pattern, arrow keys
+    BudgetTiles/    the three band figures, above the strip
+    BudgetProgress/ the budget bar; owns which bands are drawn
     PriorityBoard/  what's left to buy, by room, with its own budget read
   styles/
     index.css       imports tailwind, then theme, then base
@@ -133,8 +144,53 @@ hash, so the three can't disagree:
 | **Register** | Everything, filterable and sortable |
 | **Specs** | What each appliance needs at the wall |
 
-The budget tiles sit *above* the strip and show on every tab — they answer "where
-am I", which shouldn't be behind a click.
+The budget bar and its tiles sit *above* the strip and show on every tab — they
+answer "where am I", which shouldn't be behind a click.
+
+### The budget bar
+
+One bar, then three figures, both built from the same split of the projected
+outturn by **how firm each sum is**. The bar comes first because it is the whole
+answer in one line; the tiles under it are that same split written out exactly.
+
+| Band | What it is | Colour |
+| --- | --- | --- |
+| **Paid** | invoiced and settled — money that has left the bank | `walnut-900` |
+| **Contracted** | agreed with the contractor, not yet invoiced | `brass-500` |
+| **Furniture estimates** | still being shopped for | `oak-500` |
+
+The keys in code are `paid`, `contracted` and `estimated`; `BAND_LABEL` in
+`src/data/taxonomy.ts` holds what each is called on screen, so relabelling a band
+does not touch the arithmetic.
+
+`bandTotals()` in `src/lib/totals.ts` computes them, and the three **partition the
+outturn exactly** — `paid + contracted + estimated === projected`, whatever mix of
+rows the sheet holds. That is the property the bar rests on: three bands that sum
+to the outturn can be drawn end to end against the budget, where three overlapping
+figures could not. It falls out of taking `actual` whole and then splitting only
+what is left, so a part-paid row contributes its paid share to **Paid** and only
+its balance to one of the other two. Which of the two is `isSettled()`.
+
+Deep wood to pale tan as the money gets less certain, so the bar reads as one ramp
+rather than three unrelated colours. Rust is kept out of it deliberately: it marks
+the budget line, described below.
+
+**The legend doubles as the control.** Clicking a band drops it from the bar, which
+is how you ask a narrower question — "where would I be if I paid only what is
+already contracted and bought none of the appliances?" — without doing the
+subtraction yourself. Dropping a band shrinks the bar and gives its money back as
+headroom; any subset is valid, including none.
+
+Widths are measured against `max(budget, shown)`, not the budget, so an overrun
+still fits: the bar fills completely and the budget becomes a **rust line partway
+along it** rather than a width the slices exceed. With no `Total Budget` cell on
+the sheet the bands are measured against their own total, which makes the bar a
+composition of the outturn instead of progress towards a limit.
+
+The bar itself is `aria-hidden`. Every figure it encodes is printed as text in the
+legend buttons and the caption beneath it, so a screen reader gets the numbers
+rather than a description of a picture — the same split `SpendChart` makes between
+its bars and its labels.
 
 The active tab lives in the URL hash, so `…/#register` deep-links to a tab, the
 back button walks through the tabs visited, and a refresh stays put. Only the
@@ -202,8 +258,10 @@ Warm wood and cream. Three families by role, all defined in
 | `walnut-400…950` | wood — text, headings, the header panel, muted figures |
 | `oak` `brass` `ember` `sage` `blush` `denim` `plum` | accents — chart series and emphasis |
 
-`ember-500` is the emphasis accent and the focus ring. `sage-600` carries
-positive accounting figures; `walnut-400` carries the em dash on an absent one.
+`ember-500` is the emphasis accent and the focus ring; `ember-600` is reserved for
+the budget line on an overrunning bar, which is why no band on that bar is rust.
+`sage-600` carries positive accounting figures; `walnut-400` carries the em dash on
+an absent one.
 `oak-400` and `brass-400` exist only for small text sitting *on* the wood, where
 the `-500`s are too dark; the `-500`s stay put because they are chart series read
 against cream, where lighter is worse.

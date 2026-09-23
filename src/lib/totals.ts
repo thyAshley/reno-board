@@ -5,7 +5,7 @@
  * item count of 41 includes six renovation-billing lines, for instance). The
  * stated figures are compared against these in tests as an integrity check.
  */
-import { ROOM_ORDER, type Priority, type Room, type Status } from '../data/taxonomy'
+import { BAND_ORDER, ROOM_ORDER, type Band, type Priority, type Room, type Status } from '../data/taxonomy'
 import { isPriced, isSettled, itemValue, type Metric } from './items'
 import { sum, type Cents } from './money'
 import type { Item } from './sheet'
@@ -180,6 +180,94 @@ export function byRoomGroup(rows: readonly Item[]): RoomGroup[] {
       actual: total(inRoom, 'actual'),
     }
   }).filter((group) => group.rows.length > 0)
+}
+
+export type BandTotals = Record<Band, Cents>
+
+/** The projected outturn split by how firm each sum is: paid, contracted but not
+ *  yet invoiced, and still only estimated.
+ *
+ *  The three partition `projected` exactly — `paid + contracted + estimated`
+ *  always equals it, whatever mix of rows the sheet holds. That is the property
+ *  the bar depends on: three bands that sum to the outturn can be drawn end to
+ *  end against the budget, where three overlapping figures could not.
+ *
+ *  It falls out of taking `actual` whole and then splitting only what is left.
+ *  Contracted and estimated are each a row group's projected *less its actual*,
+ *  so a part-paid row contributes its paid share to `paid` and only its balance
+ *  to one of the other two — never the same dollar twice. Which of the two gets
+ *  that balance is `isSettled`: ordered or done means the price is agreed. */
+export function bandTotals(items: readonly Item[]): BandTotals {
+  const settled = worksRows(items)
+  const open = openRows(items)
+
+  return {
+    paid: total(items, 'actual'),
+    contracted: total(settled, 'projected') - total(settled, 'actual'),
+    estimated: total(open, 'projected') - total(open, 'actual'),
+  }
+}
+
+export interface BandSlice {
+  band: Band
+  amount: Cents
+  /** Fraction of the bar's full width, 0 to 1. */
+  share: number
+}
+
+export interface BudgetBar {
+  budget?: Cents
+  /** One slice per band being shown, in `BAND_ORDER`. */
+  slices: BandSlice[]
+  /** The shown bands summed — the length the bar draws. */
+  shown: Cents
+  /** What the bar's full width stands for. */
+  scale: Cents
+  /** Budget less shown. Negative when the shown bands overrun the budget. */
+  left?: Cents
+  over: boolean
+  /** Where the budget line falls along the bar, 0 to 1 — only when the bar
+   *  overruns it, since otherwise the budget *is* the end of the bar. */
+  mark?: number
+}
+
+/** Bar geometry for the bands currently shown.
+ *
+ *  Shares are measured against `max(budget, shown)`, not the budget, so an
+ *  overrun still fits: the bar fills completely and the budget becomes a line
+ *  partway along it rather than a width the slices exceed. With no budget on the
+ *  sheet the bands are measured against their own total, which makes the bar a
+ *  composition of the outturn instead of progress towards a limit.
+ *
+ *  Which bands are shown is the caller's business — dropping one shrinks the bar
+ *  and grows what is left, which is the point of being able to drop it. */
+export function budgetBar(
+  totals: BandTotals,
+  show: readonly Band[],
+  budget?: Cents,
+): BudgetBar {
+  const bands = BAND_ORDER.filter((band) => show.includes(band))
+  const shown = sum(bands.map((band) => totals[band]))
+  const scale = budget === undefined ? shown : Math.max(budget, shown)
+  const left = budget === undefined ? undefined : budget - shown
+  const over = left !== undefined && left < 0
+
+  return {
+    slices: bands.map((band) => ({
+      band,
+      amount: totals[band],
+      // A zero scale means nothing is shown and there is no budget: every share
+      // is zero rather than a division by it.
+      share: scale === 0 ? 0 : totals[band] / scale,
+    })),
+    shown,
+    scale,
+    over,
+    // `left` recomputed rather than spread: inside a conditional spread TS keeps
+    // it `Cents | undefined`, which exactOptionalPropertyTypes rightly rejects.
+    ...(budget !== undefined && { budget, left: budget - shown }),
+    ...(over && budget !== undefined && { mark: budget / scale }),
+  }
 }
 
 export interface Outlook {

@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
+import BudgetProgress from './components/BudgetProgress'
 import BudgetTiles from './components/BudgetTiles'
 import ItemRegister from './components/ItemRegister'
 import { Loading, LoadError, Problems } from './components/Notice'
@@ -13,7 +14,7 @@ import { useHashTab } from './hooks/useHashTab'
 import { useScrolledPast } from './hooks/useScrolledPast'
 import { useSheet } from './hooks/useSheet'
 import { sortItems } from './lib/items'
-import { TO_BUY, priorityRows, summarise, worksRows } from './lib/totals'
+import { TO_BUY, bandTotals, priorityRows, summarise, worksRows } from './lib/totals'
 
 const FIRST_TAB: SectionId = 'priority'
 
@@ -25,6 +26,10 @@ export default function App() {
 
   const summary = useMemo(() => summarise(items, stated.budget), [items, stated.budget])
   const works = useMemo(() => worksRows(items), [items])
+
+  /* Computed once and handed to both the tiles and the bar, so the two cannot
+   * disagree about what has been paid. */
+  const bands = useMemo(() => bandTotals(items), [items])
 
   /* Everything still to buy, ordered once here and grouped by room downstream.
    *
@@ -119,8 +124,16 @@ export default function App() {
             )}
 
             {/* Above the tabs, deliberately: the headline figures answer "where am
-              * I" and belong on every view rather than behind a click. */}
-            <BudgetTiles summary={summary} />
+              * I" and belong on every view rather than behind a click.
+              *
+              * Budget first, then the bands that make it up. The bar is the whole
+              * answer in one line — how much of the budget has gone and how firm
+              * it is — and the tiles below it are that same split written out
+              * exactly, which is the order the question is asked in. */}
+            <div className="space-y-3">
+              <BudgetProgress totals={bands} budget={stated.budget} />
+              <BudgetTiles bands={bands} summary={summary} />
+            </div>
 
             <div className="mt-10">
               <Tabs items={tabs} active={active} onSelect={selectTab} label="Dashboard views" />
