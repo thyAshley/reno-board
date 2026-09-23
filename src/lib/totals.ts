@@ -20,6 +20,8 @@ export interface Summary {
   actual: Cents
   /** Actual where known, else estimate. The realistic final bill. */
   projected: Cents
+  /** Projected less committed: what the flat has still to be paid for. */
+  outstanding: Cents
   budget?: Cents
   /** Budget less what is committed so far. The sheet's own "Variance". */
   remaining?: Cents
@@ -42,6 +44,7 @@ export function summarise(items: readonly Item[], budget?: Cents): Summary {
     estimate: total(items, 'estimate'),
     actual,
     projected,
+    outstanding: projected - actual,
     ...(budget !== undefined && {
       budget,
       remaining: budget - actual,
@@ -86,18 +89,24 @@ export function countBy<K extends Priority | Status>(
   return counts
 }
 
-/** Rows with a quoted amount against them: work already billed rather than
- *  shopping still to do. In this sheet that is the six per-room Renovation Cost
- *  lines, which behave unlike the appliances — no dimensions, no research,
- *  already committed. Note they carry the contractor's name in the Brand column,
- *  not Retailer / Vendor, which those rows leave as "NA". */
+/** Work already contracted rather than shopping still to do. In this sheet that
+ *  is the six Renovation Cost instalments, which behave unlike the appliances —
+ *  no dimensions, no research, the price already agreed. They carry the
+ *  contractor's name in the Brand column, not Retailer / Vendor, which those rows
+ *  leave as "NA".
+ *
+ *  Asks `isSettled` — the sheet's own "not being shopped for" signal — rather than
+ *  "has an Actual figure". Four of the six instalments are contracted but not yet
+ *  invoiced, so an Actual test would call the contract one line and $2,071 when it
+ *  is six lines and $47,420. The trade-off is that an appliance marked `Ordered`
+ *  will appear here too, which is the honest reading of the column. */
 export function worksRows(items: readonly Item[]): Item[] {
-  return items.filter((item) => item.actual !== undefined)
+  return items.filter(isSettled)
 }
 
-/** Everything still being shopped for: no committed figure yet. */
+/** Everything still being shopped for: the complement of the above. */
 export function openRows(items: readonly Item[]): Item[] {
-  return items.filter((item) => item.actual === undefined)
+  return items.filter((item) => !isSettled(item))
 }
 
 /** The priority levels that make up the "what to buy next" view, in the order

@@ -26,7 +26,7 @@ function Tile({ label, value, note, lead = false, tone = 'neutral' }: TileProps)
       <p
         className={[
           'font-mono text-[11px] tracking-wider uppercase',
-          lead ? 'text-oak-500' : 'text-walnut-600',
+          lead ? 'text-oak-400' : 'text-walnut-600',
         ].join(' ')}
       >
         {label}
@@ -37,7 +37,7 @@ function Tile({ label, value, note, lead = false, tone = 'neutral' }: TileProps)
           lead ? 'text-cream-50' : valueTone,
         ].join(' ')}
       >
-        <span className={lead ? 'text-oak-500' : 'text-walnut-400'}>S$</span>
+        <span className={lead ? 'text-oak-400' : 'text-walnut-400'}>S$</span>
         {value}
       </p>
       <p className={['mt-1 text-xs', lead ? 'text-cream-300' : 'text-walnut-600'].join(' ')}>
@@ -48,7 +48,7 @@ function Tile({ label, value, note, lead = false, tone = 'neutral' }: TileProps)
 }
 
 export default function BudgetTiles({ summary }: { summary: Summary }) {
-  const { budget, actual, projected, estimate, headroom, itemCount, pricedCount, settledCount } =
+  const { budget, actual, projected, outstanding, headroom, itemCount, pricedCount, settledCount } =
     summary
 
   const overBudget = headroom !== undefined && headroom < 0
@@ -64,7 +64,10 @@ export default function BudgetTiles({ summary }: { summary: Summary }) {
       <Tile
         label="Projected outturn"
         value={formatSGD0(projected)}
-        note={`committed, plus S$${formatSGD0(estimate)} still estimated`}
+        /* Committed plus outstanding, which sums to the figure above. The old
+         * note added the whole estimate column to the committed total, which
+         * double-counted every row carrying both figures. */
+        note={`committed, plus S$${formatSGD0(outstanding)} still to pay`}
       />
       {budget === undefined ? (
         <Tile label="Total budget" value="—" note="no Total Budget cell found in the sheet" />

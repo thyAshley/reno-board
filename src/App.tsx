@@ -60,7 +60,7 @@ export default function App() {
       {/* The masthead is ordinary flow: it scrolls away and is never resized. */}
       <header className="bg-walnut-900 text-cream-100">
         <div className="mx-auto max-w-6xl px-6 pt-12 pb-8">
-          <p className="font-mono text-xs tracking-[0.2em] text-brass-500 uppercase">
+          <p className="font-mono text-xs tracking-[0.2em] text-brass-400 uppercase">
             {SITE.eyebrow}
           </p>
           <h1 className="mt-3 font-display text-4xl text-cream-50 sm:text-5xl">{SITE.title}</h1>
@@ -137,7 +137,7 @@ export default function App() {
             <Panel
               id="works"
               active={active}
-              note="Lines a contractor has billed, kept apart from the appliances still being shopped for."
+              note="The quotation in instalments, kept apart from the appliances still being shopped for. Contracted is the agreed price; Paid is what has been invoiced so far."
             >
               <WorksLedger rows={works} />
             </Panel>
@@ -242,7 +242,7 @@ function Freshness({
         type="button"
         onClick={onReload}
         disabled={loading}
-        className="rounded-full border border-walnut-500 px-3 py-1 text-cream-200 hover:border-brass-500 disabled:opacity-50"
+        className="rounded-full border border-oak-500 px-3 py-1 text-cream-200 hover:border-brass-400 disabled:opacity-50"
       >
         {loading ? 'Refreshing…' : 'Refresh'}
       </button>

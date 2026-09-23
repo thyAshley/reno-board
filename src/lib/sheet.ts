@@ -7,8 +7,7 @@
  * Because the sheet is read at runtime, the type system cannot catch a renamed
  * column for us. So instead of throwing, the parser collects `problems` and the
  * page shows them in a banner — a bad row is excluded from the figures rather
- * than quietly counted as zero. tests/lib/sheet.test.ts pins the real sheet's
- * shape, so a breaking edit fails CI too.
+ * than quietly counted as zero.
  */
 import {
   isPriority,
@@ -80,6 +79,24 @@ type Field = keyof typeof COLUMNS
 
 /** Columns without which the page has nothing to show. */
 const REQUIRED: readonly Field[] = ['priority', 'room', 'name', 'status']
+
+/* A zero in a money column means "no figure yet", not "free".
+ *
+ * The renovation quotation is entered as six instalment rows — 5% deposit, 45%
+ * on commencement, 30%, 15%, 5% — and the five not yet invoiced carry "$0.00" in
+ * Actual / Quoted rather than an empty cell. Read literally, `actual ?? estimate`
+ * then prices each of them at nothing, which dropped $45,349 of contracted work
+ * out of the projected outturn and handed it back as headroom.
+ *
+ * So zero is folded into the blanks here, at the boundary, rather than being
+ * special-cased in each figure downstream. A genuine zero-cost line is
+ * indistinguishable from an unfilled cell in this sheet, and treating it as
+ * unpriced is the safer of the two readings: it shows as an em dash instead of
+ * silently shrinking a total. */
+function parseAmount(raw: string): Cents | undefined {
+  const value = parseMoney(raw)
+  return value === 0 ? undefined : value
+}
 
 type ColumnMap = Partial<Record<Field, number>>
 
@@ -196,8 +213,8 @@ export function parseSheet(csv: string): SheetData {
     const vendor = cleanCell(cellAt(row, 'vendor'))
     const warranty = cleanCell(cellAt(row, 'warranty'))
     const notes = cleanCell(cellAt(row, 'notes'))
-    const estimate = parseMoney(cellAt(row, 'estimate'))
-    const actual = parseMoney(cellAt(row, 'actual'))
+    const estimate = parseAmount(cellAt(row, 'estimate'))
+    const actual = parseAmount(cellAt(row, 'actual'))
 
     items.push({
       id: count === 1 ? base : `${base}-${count}`,

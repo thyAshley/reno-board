@@ -32,7 +32,7 @@ export const SITE = {
 export const SECTIONS = [
   { id: "priority", tab: "Buy next", heading: "What to buy next, room by room" },
   { id: "spend", tab: "Spend", heading: "Spend, cut three ways" },
-  { id: "works", tab: "Works", heading: "Renovation works billed" },
+  { id: "works", tab: "Works", heading: "Renovation works contracted" },
   { id: "register", tab: "Register", heading: "Everything on the list" },
   { id: "specs", tab: "Specs", heading: "What each appliance needs at the wall" },
 ] as const;

@@ -275,13 +275,13 @@ function Figure({
       <p
         className={[
           'font-mono text-[11px] tracking-wider uppercase',
-          lead ? 'text-oak-500' : 'text-walnut-600',
+          lead ? 'text-oak-400' : 'text-walnut-600',
         ].join(' ')}
       >
         {label}
       </p>
       <p className={['figure mt-2 text-3xl', lead ? 'text-cream-50' : valueTone].join(' ')}>
-        <span className={lead ? 'text-oak-500' : 'text-walnut-400'}>S$</span>
+        <span className={lead ? 'text-oak-400' : 'text-walnut-400'}>S$</span>
         {value}
       </p>
       <p className={['mt-1 text-xs', lead ? 'text-cream-300' : 'text-walnut-600'].join(' ')}>

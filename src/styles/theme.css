@@ -18,21 +18,35 @@
   --color-cream-300: #dbcaac; /* borders on cream */
 
   /* ---- Wood --------------------------------------------------------- */
-  /* A lighter, warmer ramp than espresso: pecan and chestnut rather than
-   * near-black. The deep end stays dark enough to carry cream text at AA —
-   * walnut-900 against cream-100 is 10.3:1, against cream-50 11.1:1. */
-  --color-walnut-950: #3a2718; /* deepest panel */
-  --color-walnut-900: #4a3221; /* body text, header panel */
-  --color-walnut-800: #5b3f29; /* headings */
-  --color-walnut-700: #6f4f33; /* dark panel surfaces */
-  --color-walnut-600: #82603c; /* chart series, secondary text (5.3:1 on cream) */
-  --color-walnut-500: #9a734a; /* mid wood */
-  --color-walnut-400: #a8845c; /* muted — the em dash on a zero figure */
+  /* Pecan and chestnut, not espresso: the whole ramp sits a step lighter than a
+   * conventional dark-wood palette, so the masthead and the lead tiles read as
+   * warm timber rather than as near-black blocks.
+   *
+   * The floor under that is contrast, and it binds at both ends. walnut-600 is
+   * the lightest the secondary text can go and still clear AA on the cards
+   * (4.57:1 on cream-100); walnut-900 is the lightest the dark panels can go and
+   * still carry cream-300 at AA (6.0:1), which is the palest thing printed on
+   * them. Body text at walnut-900 on cream-50 is 9.0:1. Going one step lighter
+   * again breaks one of those three, so this is the bottom of the ramp, not a
+   * midpoint — check the pairs before lightening further. */
+  --color-walnut-950: #4a3221; /* deepest panel */
+  --color-walnut-900: #5c3e28; /* body text (9.0:1 on cream-50), header panel */
+  --color-walnut-800: #6b4a2f; /* headings, active chip */
+  --color-walnut-700: #7d5839; /* table text and rules (5.9:1 on cream-50) */
+  --color-walnut-600: #8a6440; /* chart series, secondary text (4.9:1 on cream-50) */
+  --color-walnut-500: #a37b50; /* mid wood — hover borders on paper */
+  --color-walnut-400: #ad885e; /* muted — the em dash on an absent figure */
 
   /* ---- Accents ------------------------------------------------------ */
   --color-oak-500: #b98a54; /* warm tan, the workhorse accent */
   --color-oak-600: #9c7042; /* oak, pressed/hover */
   --color-brass-500: #c9a04a; /* metal highlight */
+  /* The -400 pair exists for small text printed *on* the wood, where the -500s
+   * land around 3.5:1 now that the panels are lighter. Two tokens rather than
+   * lightening the -500s, because those are chart series read against cream,
+   * where lighter is worse. Use these only on a walnut background. */
+  --color-oak-400: #d6b07c; /* tile labels on wood (4.8:1 on walnut-900) */
+  --color-brass-400: #d8b25f; /* the masthead eyebrow (4.8:1 on walnut-900) */
   --color-ember-500: #b4562a; /* rust — primary emphasis, focus ring */
   --color-ember-600: #96441f; /* rust, pressed/hover */
   --color-sage-600: #6e8064; /* green accounting figures */

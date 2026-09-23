@@ -56,12 +56,35 @@ those: rows filed under **Laundry** count as **Kitchen**, since the washer and
 drying rack sit in the service yard off it rather than in a room of their own.
 Matching ignores case and extra whitespace.
 
-### A known wrinkle in the sheet
+### Known wrinkles in the sheet
 
 `Completed` lives in the **Priority** column, where it is really a status. No
 code reads either column to answer "is this done" — `isSettled()` in
 `src/lib/items.ts` derives it. Likewise the six `Renovation Cost` rows carry the
 contractor's name in the **Brand** column and leave Retailer / Vendor as `NA`.
+
+**A zero in a money column means "no figure yet", not "free".** The renovation
+quotation is six instalment rows (5% deposit, 45%, 30%, 15%, 5%, plus electrical),
+and the five not yet invoiced hold `$0.00` in Actual / Quoted rather than an empty
+cell. Read literally, `actual ?? estimate` priced each of them at nothing and
+dropped **$45,349** of contracted work out of the projected outturn — which then
+showed $28,870 against a real $74,219, and handed the difference back as headroom.
+`parseAmount` in `src/lib/sheet.ts` folds zero into the blanks at the boundary, so
+every figure downstream is fixed in one place. A genuinely free line is
+indistinguishable from an unfilled cell here, and reading it as unpriced is the
+safer of the two: it shows an em dash rather than quietly shrinking a total.
+
+**Status values outside the union cost real money.** The sheet uses `KIV` on three
+rows, which is not `Researching` or `Ordered`, so those rows are excluded from
+every figure and reported in the banner — currently hiding **$4,000** (the System 4
+air con). Adding `KIV` to `Status` in `src/data/taxonomy.ts` would bring it back in.
+
+**Quantity is ignored.** The parser reads `Target / Estimated Price ($)`, the unit
+price, not the sheet's own `Total Estimated Price ($)`. The two standing desks
+therefore count once, $650 rather than $1,300.
+
+Those last two are the whole of the remaining gap between the sheet's stated
+`Total Est. Cost` of $78,869 and the $74,219 computed here: $4,000 + $650.
 
 ## Layout
 
@@ -106,7 +129,7 @@ hash, so the three can't disagree:
 | --- | --- |
 | **Buy next** | Everything outstanding, grouped by room and filterable to one |
 | **Spend** | The same rows cut by room, priority and status |
-| **Works** | Lines a contractor has billed |
+| **Works** | The quotation in instalments: contracted against paid |
 | **Register** | Everything, filterable and sortable |
 | **Specs** | What each appliance needs at the wall |
 
@@ -181,9 +204,21 @@ Warm wood and cream. Three families by role, all defined in
 
 `ember-500` is the emphasis accent and the focus ring. `sage-600` carries
 positive accounting figures; `walnut-400` carries the em dash on an absent one.
+`oak-400` and `brass-400` exist only for small text sitting *on* the wood, where
+the `-500`s are too dark; the `-500`s stay put because they are chart series read
+against cream, where lighter is worse.
 
-The walnut ramp is a lighter pecan/chestnut rather than espresso. The deep end
-still carries cream text at AA: `walnut-900` against `cream-100` is 10.3:1.
+The walnut ramp is pecan and chestnut rather than espresso — a step lighter than a
+conventional dark-wood palette, so the masthead and lead tiles read as timber
+rather than near-black. Contrast is the floor, and it binds at both ends:
+`walnut-600` is as light as the secondary text can go and still clear AA on the
+cards (4.57:1 on `cream-100`), and `walnut-900` is as light as the panels can go
+and still carry `cream-300` (6.0:1), the palest thing printed on them. Body text is
+9.0:1. **Lightening the ramp further breaks one of those three** — check the pairs
+before touching it.
+
+One known gap, unrelated to the wood: `sage-600` on `cream-100` is 3.68:1, short of
+AA for the positive figures it carries. Darkening it to `#5f7256` would fix it.
 Charts walk the accent ramp in a fixed order (`ember · oak · brass · sage ·
 denim · plum · blush · walnut-600`) so two charts of the same data never disagree
 on colour.
